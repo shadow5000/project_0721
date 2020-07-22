@@ -7,6 +7,10 @@ import queue
 import threading
 import csv
 import json
+import time
+
+tm = time.strftime("%Y_%m_%d")
+filename= r'./fund_data_'+tm+'.csv'
 
 # user_agent列表
 user_agent_list = [
@@ -25,17 +29,18 @@ referer_list = [
     'http://fund.eastmoney.com/110025.html'
 ]
 
-
-
 # 返回一个可用代理，格式为ip:端口
 # 该接口直接调用github代理池项目给的例子，故不保证该接口实时可用
 # 建议自己搭建一个本地代理池，这样获取代理的速度更快
 # 代理池搭建github地址https://github.com/1again/ProxyPool
 # 搭建完毕后，把下方的proxy.1again.cc改成你的your_server_ip，本地搭建的话可以写成127.0.0.1或者localhost
+# http://proxy.1again.cc:35050/api/v1/proxy/?https=1 获取支持https的proxy
+# http://proxy.1again.cc:35050/api/v1/proxy/?type=2 获取匿名的proxy
+
 def get_proxy():
-    data_json = requests.get("http://proxy.1again.cc:35050/api/v1/proxy/?type=2").text
+    data_json = requests.get("http://proxy.1again.cc:35050/api/v1/proxy/?region=中国").text
     data = json.loads(data_json)
-    #return data['data']['proxy']
+    return data['data']['proxy']
 
 
 # 获取所有基金代码
@@ -68,6 +73,7 @@ def get_fund_code():
 # 获取基金数据
 def get_fund_data():
 
+
     # 当队列不为空时
     while (not fund_code_queue.empty()):
 
@@ -88,7 +94,8 @@ def get_fund_data():
         try:
             # 使用代理访问
             req = requests.get("http://fundgz.1234567.com.cn/js/" + str(fund_code) + ".js", proxies={"http": proxy}, timeout=3, headers=header)
-
+            print("http://fundgz.1234567.com.cn/js/" + str(fund_code) + ".js")
+            print("http:"+proxy)
             # 没有报异常，说明访问成功
             # 获得返回数据
             data = (req.content.decode()).replace("jsonpgz(","").replace(");","").replace("'","\"")
@@ -99,7 +106,7 @@ def get_fund_data():
             mutex_lock.acquire()
 
             # 追加数据写入csv文件，若文件不存在则自动创建
-            with open('./fund_data.csv', 'a+', encoding='gb18030') as csv_file: #gb18030防止乱码
+            with open('./fund_data_'+tm+'.csv', 'a+', encoding='gb18030') as csv_file: #gb18030防止乱码
                 csv_writer = csv.writer(csv_file)
                 data_list = [x for x in data_dict.values()]
                 csv_writer.writerow(data_list)
@@ -109,31 +116,34 @@ def get_fund_data():
 
         except Exception:
             # 访问失败了，所以要把我们刚才取出的数据再放回去队列中
+            print("http://fundgz.1234567.com.cn/js/" + str(fund_code) + ".js")
+            print("http:"+proxy)
             fund_code_queue.put(fund_code)
             print("访问失败，尝试使用其他代理访问")
 
 
 if __name__ == '__main__':
+    try:
+        # 获取所有基金代码
+        fund_code_list = get_fund_code()
 
-    # 获取所有基金代码
-    fund_code_list = get_fund_code()
-
-    # 将所有基金代码放入先进先出FIFO队列中
-    # 队列的写入和读取都是阻塞的，故在多线程情况下不会乱
-    # 在不使用框架的前提下，引入多线程，提高爬取效率
-    # 创建一个队列
-    fund_code_queue = queue.Queue(len(fund_code_list))
-    # 写入基金代码数据到队列
-    for i in range(len(fund_code_list)):
-        #fund_code_list[i]也是list类型，其中该list中的第0个元素存放基金代码
-        fund_code_queue.put(fund_code_list[i][0])
+        # 将所有基金代码放入先进先出FIFO队列中
+        # 队列的写入和读取都是阻塞的，故在多线程情况下不会乱
+        # 在不使用框架的前提下，引入多线程，提高爬取效率
+        # 创建一个队列
+        fund_code_queue = queue.Queue(len(fund_code_list))
+        # 写入基金代码数据到队列
+        for i in range(len(fund_code_list)):
+            #fund_code_list[i]也是list类型，其中该list中的第0个元素存放基金代码
+            fund_code_queue.put(fund_code_list[i][0])
 
 
 
-    # 创建一个线程锁，防止多线程写入文件时发生错乱
-    mutex_lock = threading.Lock()
-    # 线程数为50，在一定范围内，线程数越多，速度越快
-    for i in range(50):
-        t = threading.Thread(target=get_fund_data,name='LoopThread'+str(i))
-        t.start()
-#test
+        # 创建一个线程锁，防止多线程写入文件时发生错乱
+        mutex_lock = threading.Lock()
+        # 线程数为50，在一定范围内，线程数越多，速度越快
+        for i in range(50):
+            t = threading.Thread(target=get_fund_data,name='LoopThread'+str(i))
+            t.start()
+    except Exception as r:
+        print(r)

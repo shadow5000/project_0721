@@ -24,36 +24,9 @@ referer_list = [
     'http://fund.eastmoney.com/110025.html'
 ]
 
-def get_fund_code():
-    # 获取一个随机user_agent和Referer
-    header = {'User-Agent': random.choice(user_agent_list),
-              'Referer': random.choice(referer_list)
-    }
+header = {'User-Agent': random.choice(user_agent_list),
+          'Referer': random.choice(referer_list)
+          }
 
-    # 访问网页接口
-    req = requests.get('http://fund.eastmoney.com/js/fundcode_search.js', timeout=5, headers=header)
-
-    #获取所有基金代码
-    fund_code = req.content.decode()
-    # pprint(fund_code)
-    fund_code = fund_code.replace("﻿var r = [","").replace("];","")
-    # # 正则批量提取
-    fund_code = re.findall(r"[\[](.*?)[\]]", fund_code)
-    # fund_code = re.findall(r"000001(.*?)HH", fund_code)
-    # 对每行数据进行处理，并存储到fund_code_list列表中
-    fund_code_list = []
-    for sub_data in fund_code:
-        data = sub_data.replace("\"","").replace("'","")
-        data_list = data.split(",")
-        fund_code_list.append(data_list)
-    print(fund_code_list)
-    return fund_code_list
-get_fund_code()
-
-# def get_proxy():
-#     data_json = requests.get("http://proxy.1again.cc:35050/api/v1/proxy/?type=2").text
-#     print(data_json)
-#     # data = json.loads(data_json)
-#     # print(data)
-#     # return data['data']['proxy']
-# get_proxy()
+req = requests.get("http://fundgz.1234567.com.cn/js/000051.js", proxies={"http":"101.37.118.54:8888"}, timeout=3, headers=header)
+print(req)
