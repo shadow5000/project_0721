@@ -29,4 +29,4 @@ header = {'User-Agent': random.choice(user_agent_list),
           }
 
 req = requests.get("http://fundgz.1234567.com.cn/js/000051.js", proxies={"http":"101.37.118.54:8888"}, timeout=3, headers=header)
-print(req)
+print(req.content.decode())
