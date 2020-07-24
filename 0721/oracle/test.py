@@ -1,32 +1,27 @@
-import requests
-import random
-import re
-import queue
-import threading
-import csv
-import json
-from pprint import  pprint
+#to_date('2013-2-26 11:07:25' , 'yyyy-mm-dd hh24:mi:ss')
+data_list=['000001', '华夏成长混合', '2020-07-23', '1.4460', '1.4289', '-1.19', '2020-07-24 09:36']
+print(data_list)
+print(type(data_list))
 
-# user_agent列表
-user_agent_list = [
-    'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/21.0.1180.71 Safari/537.1 LBBROWSER',
-    'Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; QQDownload 732; .NET4.0C; .NET4.0E)',
-    'Mozilla/5.0 (Windows NT 5.1) AppleWebKit/535.11 (KHTML, like Gecko) Chrome/17.0.963.84 Safari/535.11 SE 2.X MetaSr 1.0',
-    'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Maxthon/4.4.3.4000 Chrome/30.0.1599.101 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.122 UBrowser/4.0.3214.0 Safari/537.36'
-]
+str1="to_date('"+data_list[2]+"' ,'yyyy-mm-dd')"
 
-# referer列表
-referer_list = [
-    'http://fund.eastmoney.com/110022.html',
-    'http://fund.eastmoney.com/110023.html',
-    'http://fund.eastmoney.com/110024.html',
-    'http://fund.eastmoney.com/110025.html'
-]
+str2="to_date('"+data_list[-1]+" ','yyyy-mm-dd hh24:mi:ss')"
+print("str1: %s" %str2 )
+print("str1类型：%s" %type(str2))
+print('-------------------------------------------')
 
-header = {'User-Agent': random.choice(user_agent_list),
-          'Referer': random.choice(referer_list)
-          }
 
-req = requests.get("http://fundgz.1234567.com.cn/js/000051.js", proxies={"http":"101.37.118.54:8888"}, timeout=3, headers=header)
-print(req.content.decode())
+# data_list=data_list[0:-1]
+# print(data_list)
+# print(type(data_list))
+# print('--------------------------------------------')
+
+data_list[2]=str1
+data_list[-1]=str2
+print(data_list)
+print(type(data_list))
+
+
+insert_sql='insert into fund_'+'tm'+' values'+str(tuple(data_list))
+insert_sql=insert_sql.replace('"','')
+print('insert_sql:',insert_sql)

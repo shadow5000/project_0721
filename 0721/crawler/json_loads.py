@@ -6,6 +6,6 @@ def get_proxy():
     print(data_json)
     data=json.loads(data_json)
     print(data['data']['proxy'])
-    # return  data['data']['proxy']
+    return  data['data']['proxy']
 proxy=get_proxy()
-print(proxy)
+print('proxy:%s' %(proxy))

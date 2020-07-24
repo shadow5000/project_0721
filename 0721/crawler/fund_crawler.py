@@ -8,9 +8,12 @@ import threading
 import csv
 import json
 import time
+import cx_Oracle
+import config
 
 tm = time.strftime("%Y_%m_%d")
 filename= r'./fund_data_'+tm+'.csv'
+table_name='fund_' + tm
 
 # user_agent列表
 user_agent_list = [
@@ -38,9 +41,9 @@ referer_list = [
 # http://proxy.1again.cc:35050/api/v1/proxy/?type=2 获取匿名的proxy
 
 def get_proxy():
-    data_json = requests.get("http://proxy.1again.cc:35050/api/v1/proxy/?region=中国").text
+    data_json = requests.get("http://proxy.1again.cc:35050/api/v1/proxy/?type=2").text
     data = json.loads(data_json)
-    return data['data']['proxy']
+    # return data['data']['proxy']
 
 
 # 获取所有基金代码
@@ -95,7 +98,7 @@ def get_fund_data():
             # 使用代理访问
             req = requests.get("http://fundgz.1234567.com.cn/js/" + str(fund_code) + ".js", proxies={"http": proxy}, timeout=3, headers=header)
             print("http://fundgz.1234567.com.cn/js/" + str(fund_code) + ".js")
-            print("http:"+proxy)
+            print("proxy:"+str(proxy))
             # 没有报异常，说明访问成功
             # 获得返回数据
             data = (req.content.decode()).replace("jsonpgz(","").replace(");","").replace("'","\"")
@@ -106,43 +109,76 @@ def get_fund_data():
             mutex_lock.acquire()
 
             # 追加数据写入csv文件，若文件不存在则自动创建
+            data_list=[]
             with open('./fund_data_'+tm+'.csv', 'a+', encoding='gb18030') as csv_file: #gb18030防止乱码
                 csv_writer = csv.writer(csv_file)
                 data_list = [x for x in data_dict.values()]
+                print('data_list:',data_list)
                 csv_writer.writerow(data_list)
-
+            conn = cx_Oracle.connect('test/test@128.160.187.34/xe')
+            cursor = conn.cursor()
+            # insert_sql='insert into fund_'+tm+' values'+str(tuple(data_list))
+            str1 = "to_date('" + data_list[2] + "' ,'yyyy-mm-dd hh24:mi:ss')"
+            str2 = "to_date('" + data_list[-1] + " ','yyyy-mm-dd hh24:mi:ss')"
+            data_list[2] = str1
+            data_list[-1] = str2
+            insert_sql = 'insert into '+table_name + ' values' + str(tuple(data_list))
+            insert_sql = insert_sql.replace('"', '')
+            print('insert_sql:', insert_sql)
+            cursor.execute(insert_sql)
+            conn.commit()
+            cursor.close()
+            conn.close()
             # 释放锁
             mutex_lock.release()
 
         except Exception:
             # 访问失败了，所以要把我们刚才取出的数据再放回去队列中
             print("http://fundgz.1234567.com.cn/js/" + str(fund_code) + ".js")
-            print("http:"+proxy)
+            print("proxy:"+str(proxy))
             fund_code_queue.put(fund_code)
             print("访问失败，尝试使用其他代理访问")
 
+def create_table():
+    conn = cx_Oracle.connect(config.dblink)
+    cursor = conn.cursor()
+
+    truncate_sql = 'truncate TABLE '+table_name
+    create_sql = 'CREATE TABLE '+table_name+ ' (ID varchar(8),name varchar(64), yesterday date, yesval number(6,4), todval number(6,4), rate number(4,2),today date)'
+    try:
+        cursor.execute(truncate_sql)
+        print('%s表数据已清空,开始插入新数据' %('fund_'+tm))
+    except:
+        cursor.execute(create_sql)
+        print('%s表已创建' %('fund_'+tm))
+    conn.commit()
+    cursor.close()
+    conn.close()
 
 if __name__ == '__main__':
     try:
         # 获取所有基金代码
         fund_code_list = get_fund_code()
-
+        print('基金代码队列大小：%s' %(len(fund_code_list)))
         # 将所有基金代码放入先进先出FIFO队列中
         # 队列的写入和读取都是阻塞的，故在多线程情况下不会乱
         # 在不使用框架的前提下，引入多线程，提高爬取效率
         # 创建一个队列
         fund_code_queue = queue.Queue(len(fund_code_list))
         # 写入基金代码数据到队列
+
         for i in range(len(fund_code_list)):
             #fund_code_list[i]也是list类型，其中该list中的第0个元素存放基金代码
             fund_code_queue.put(fund_code_list[i][0])
 
-
+        #建表
+        create_table()
 
         # 创建一个线程锁，防止多线程写入文件时发生错乱
         mutex_lock = threading.Lock()
         # 线程数为50，在一定范围内，线程数越多，速度越快
         for i in range(50):
+
             t = threading.Thread(target=get_fund_data,name='LoopThread'+str(i))
             t.start()
     except Exception as r:
